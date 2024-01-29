@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -12,20 +13,14 @@ type Store struct {
 	cache Cacher
 }
 
-func (s *Store) GetFromCache(key int) (string, bool) {
-	val, ok := s.cache.Get(key)
-	if ok {
-		fmt.Println("Cache hit")
-		return val, ok
-	}
-	return "", false
-}
-
 func (s *Store) Get(key int) (string, error) {
 	val, ok := s.cache.Get(key)
 	if ok {
 		// bust cache
-		s.cache.Remove(key)
+		if err := s.cache.Remove(key); err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("Returning from cache")
 		return val, nil
 	}
 	val, ok = s.data[key]
@@ -57,15 +52,16 @@ func main() {
 		DB:       0,
 	})
 
-	s := NewStore(NewRedisCache(client))
-	// for q := 1; q < 10; q++ {
-	t1, err := s.Get(1)
-	if err != nil {
-		fmt.Println("Error")
-		log.Fatal(err)
-	} else {
-		fmt.Println(t1)
+	ttl := time.Second * 4
+	s := NewStore(NewRedisCache(client, ttl))
+	for q := 1; q < 10; q++ {
+		t1, err := s.Get(1)
+		if err != nil {
+			fmt.Println("Error")
+			log.Fatal(err)
+		} else {
+			fmt.Println(t1)
+		}
 	}
-	// }
 
 }
